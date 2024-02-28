@@ -9,9 +9,10 @@ export type Message = {
 
 type ConversationProps = {
   messages: Message[];
+  loading: boolean;
 };
 
-const Conversation: React.FC<ConversationProps> = ({ messages }) => {
+const Conversation: React.FC<ConversationProps> = ({ messages,loading }) => {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ const Conversation: React.FC<ConversationProps> = ({ messages }) => {
     return (
       <View style={[styles.messageRow, isSarathi ? null : styles.userRow]}>
         <View style={isSarathi ? styles.sarathiBubble : styles.userBubble}>
-          <Text style={styles.label}>{isSarathi ? 'सराठी' : 'तपाई'}</Text>
+          <Text style={styles.label}>{isSarathi ? 'सारथी' : 'तपाई'}</Text>
           <Text style={isSarathi ? styles.sarathiText : styles.userText}>
             {item.text}
           </Text>

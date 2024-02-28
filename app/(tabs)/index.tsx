@@ -19,9 +19,10 @@ export default function TabOneScreen() {
       const nepaliSarathiRegex = /सारथी|सरथी|सारथि|सारथे|सारथ|सरथि|शारथि/;
       console.log(results[0]);
       if (result.value && result.value[0].match(nepaliSarathiRegex)) {
-        Voice.stop().then(() => {
-          router.push("/(tabs)/two");
-        })
+        setShouldListen(false);
+        stopSpeechToText().then(() => {
+          router.replace("/(tabs)/two");
+        });
       }
       // Continue listening
       if (shouldListen) restartListening();
@@ -50,7 +51,7 @@ export default function TabOneScreen() {
 
     return () => {
       setShouldListen(false); // Stop listening on component unmount
-      // Voice.destroy().then(Voice.removeAllListeners);
+      Voice.destroy().then(Voice.removeAllListeners);
     };
   }, [shouldListen]);
 
