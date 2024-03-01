@@ -2,7 +2,7 @@ import { StyleSheet, TouchableOpacity } from "react-native";
 import { Text, View } from "@/components/Themed";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
-import { blurhash } from "@/constants/blurHash";
+import { blurhash } from "@/constants";
 import { useRouter } from "expo-router";
 import Voice, { SpeechErrorEvent, SpeechResultsEvent } from "@react-native-voice/voice";
 import { useEffect, useState } from "react";
