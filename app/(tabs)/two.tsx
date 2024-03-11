@@ -12,13 +12,22 @@ import { useRouter } from "expo-router";
 import { CONSTANT_WORDS_TO_SPEAK, blurhash } from "@/constants";
 import { Image } from "expo-image";
 import _ from "lodash";
+import io, { Socket } from "socket.io-client";
 
 export default function TabTwoScreen() {
   const [conversation, setConversation] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter(); // Assuming useRouter hook is correctly implemented
   const [greeted, setGreeted] = useState(false);
-  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [socket, setSocket] = useState<Socket>(
+    io("https://cd17-103-156-26-41.ngrok-free.app", {
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+    })
+  );
   const wordBufferRef = useRef("");
   const accumulatedLettersRef = useRef("");
 
@@ -48,7 +57,7 @@ export default function TabTwoScreen() {
   useEffect(() => {
     setupVoiceHandlers();
     greetUser();
-    initWebSocket();
+    initSocket();
     return () => {
       Voice.destroy().then(Voice.removeAllListeners);
       if (socket) {
@@ -57,44 +66,76 @@ export default function TabTwoScreen() {
     };
   }, []);
 
-  const initWebSocket = () => {
-    // TODO : Replace with actual server URL and run it
-    const ws = new WebSocket("https://42e0-111-119-49-104.ngrok-free.app");
-    ws.onopen = () => console.log("WebSocket connection established.");
-    ws.onmessage = handleWebSocketMessage;
-    ws.onclose = () => console.log("WebSocket connection closed.");
-    setSocket(ws);
+  const initSocket = () => {
+    socket.on("connect", () =>
+      console.log("Socket.IO connection established.")
+    );
+    socket.on("disconnect", (reason) => {
+      console.log(
+        `Socket.IO connection closed due to ${reason}. Attempting to reconnect...`
+      );
+    });
+
+    socket.on("response", (data) => {
+      console.log("Received response from server:", data);
+      handleWebSocketMessage(data.data); // Assuming the server sends an object with a 'data' property
+    }); // Listen for messages with the event name you expect
+
+    setSocket(socket);
   };
 
-  const handleWebSocketMessage = (event: MessageEvent) => {
-    const message = event.data;
+  const handleWebSocketMessage = (message: string) => {
     console.log("Received message from server:", message);
-
-    // Accumulate letters for batch update
-    for (const letter of message) {
-      accumulatedLettersRef.current += letter;
-      if (letter === " ") {
-        // Check and potentially speak the buffer
-        checkAndSpeakBuffer();
-        // Update conversation with accumulated letters
-        updateConversation("sarathi", accumulatedLettersRef.current);
-        accumulatedLettersRef.current = "";
-      }
-    }
-    // Final update for any remaining letters
-    if (accumulatedLettersRef.current.trim()) {
-      updateConversation("sarathi", accumulatedLettersRef.current);
-      accumulatedLettersRef.current = "";
-    }
+    accumulatedLettersRef.current += message; // Accumulate the entire message first
+    checkAndSpeakBuffer(); // Check and potentially update the conversation
   };
 
+  const updateConversation = (sender: "user" | "sarathi", text: string) => {
+    setConversation((prevConvo: Message[]) => [
+      ...prevConvo,
+      { id: uuid.v4().toString(), text, sender },
+    ]);
+  };
+
+  // Updated function to handle debounced speaking and updating conversation with a minimum of 3 words
   const checkAndSpeakBuffer = _.debounce(() => {
-    const words = wordBufferRef.current.trim().split(" ");
+    const words = accumulatedLettersRef.current.trim().split(/\s+/); // Split by one or more spaces
     if (words.length >= 3) {
-      speak(wordBufferRef.current.trim());
-      wordBufferRef.current = ""; // Reset buffer after speaking
+      // Check if there are at least 3 words
+      speak(accumulatedLettersRef.current.trim());
+      updateConversation("sarathi", accumulatedLettersRef.current.trim());
+      accumulatedLettersRef.current = ""; // Clear the buffer after speaking and updating the conversation
+    } else {
+      // If less than 3 words, just update the last message in the conversation without speaking
+      updateConversationWithoutAdding(
+        "sarathi",
+        accumulatedLettersRef.current.trim()
+      );
     }
   }, 1000); // Adjust debounce time as needed
+
+  const updateConversationWithoutAdding = (
+    sender: "user" | "sarathi",
+    text: string
+  ) => {
+    setConversation((prevConvo) => {
+      const updatedConvo = [...prevConvo];
+      if (updatedConvo.length > 0) {
+        // Modify the last entry if it exists
+        const lastMessage = updatedConvo[updatedConvo.length - 1];
+        if (lastMessage.sender === sender) {
+          lastMessage.text = text;
+        } else {
+          // If the last message was not by the same sender, add a new message
+          updatedConvo.push({ id: uuid.v4().toString(), text, sender });
+        }
+      } else {
+        // If no messages yet, add the first message
+        updatedConvo.push({ id: uuid.v4().toString(), text, sender });
+      }
+      return updatedConvo;
+    });
+  };
 
   const setupVoiceHandlers = () => {
     Voice.onSpeechEnd = onSpeechEnd;
@@ -104,7 +145,6 @@ export default function TabTwoScreen() {
 
   const greetUser = () => {
     const greeting = CONSTANT_WORDS_TO_SPEAK.greet_customer;
-    updateConversation("sarathi", greeting);
     speak(greeting);
   };
 
@@ -156,13 +196,6 @@ export default function TabTwoScreen() {
     });
   };
 
-  const updateConversation = (sender: "user" | "sarathi", text: string) => {
-    setConversation((prevConvo: Message[]) => [
-      ...prevConvo,
-      { id: uuid.v4().toString(), text, sender },
-    ]);
-  };
-
   const processSpeechResult = (text: string) => {
     const q = encodeURIComponent(text);
     if (q === "No result") {
@@ -199,27 +232,27 @@ export default function TabTwoScreen() {
         console.log("Intent : " + intent);
         if (intent === "Alive_Verification") {
           speak(
-            "तपाईंको अस्तित्व प्रमाणित गर्न, कृपया तपाईंको हालको सम्पर्क जानकारी र कुनै पनि आधिकारिक परिचयपत्र दस्तावेज प्रदान गर्नुहोस्।"
+            "जीवित नाता प्रमाणित गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्: एक, निवेदकको नागरिकताको प्रतिलिपि , दुई , नाता कायम गर्नुपर्ने सबैको नागरिकताको प्रतिलिपि , ३ , २ २ प्रतिवटा अटोसाइज फोटो , ४ , चालु आर्थिक वर्षको सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि"
           );
         } else if (intent === "Business_Closure_Request") {
           speak(
-            "तपाईंको व्यापार बन्द गर्ने अनुरोध संग साथ अगाडि बढ्न, हामीलाई तपाईंको व्यापारको विवरण चाहिन्छ, जसमा यसको दर्ता नम्बर र बन्द गर्नुको कारण समावेश छ।"
+            " व्यवसाय बन्द गर्न सिफारिसको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक , निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , सक्कल व्यवसाय प्रमाणपत्र"
           );
         } else if (intent === "Business_Registration") {
           speak(
-            "तपाईंको व्यापार दर्ता गर्न, कृपया आवश्यक कागजातहरू जस्तै तपाईंको व्यापार योजना, ठेगानाको प्रमाण, र परिचयपत्र प्रदान गर्नुहोस्।"
+            " व्यवसाय दर्ता गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक , निवेदन पत्र ,  दुई , नागरिकता प्रमाणपत्रको प्रमाणित प्रतिलिपि , ३ , विदेशीको हकमा राहदानीको प्रमाणित प्रतिलिपि वा सम्बन्धित दुतावासको निजको परिचय खुल्ने सिफारिस , ४ , २ प्रति फोटो , ५ , घरबहाल सम्झौता , छ , आफ्नै घर टहरा भए चालु आर्थिक वर्षसम्मको मालपोत र घर जग्गाको कर तिरेको , ७ , स्थानीय तहको नाममा दर्ता नगरी प्यान वा अन्य निकायमा दर्ता गरी व्यवसाय दर्ता गरेको हकमा अन्य निकायबाट जारी गरेको व्यवसाय प्रमाणपत्रको प्रमाणित प्रतिलिपि"
           );
         } else if (intent === "Business_Relocation_Request") {
           speak(
-            "तपाईंको व्यापार सार्नको लागि, हामीलाई नयाँ स्थानको विवरण र सार्नुको कारणहरू चाहिन्छ।"
+            "व्यवसाय ठाउँसारी सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक , निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , सक्कल व्यवसाय प्रमाणपत्र , ३ , ठाउँसारी जाने घरधनीको सम्झौतापत्रको प्रतिलिपि"
           );
         } else if (intent === "Chhopaya_Request") {
           speak(
-            "तपाईंको छोपाया अनुरोध प्रक्रिया गर्न, कृपया घटनाको विवरण र कुनै पनि समर्थन दस्तावेजहरू प्रदान गर्नुहोस्।"
+            "तपाईंको छोपाया अनुरोध प्रक्रिया गर्न, कृपया घटनाको विवरण र कुनै पनि समर्थन दस्तावेजहरू प्रदान गर्नुहोस्।"//TODO
           );
         } else if (intent === "Citizenship_Certificate_Request_New_Renew") {
           speak(
-            "नयाँ वा नवीकरण गरिएको नागरिकता प्रमाणपत्रको लागि आवेदन गर्न, तपाईंले आवश्यक कागजातहरू पेश गर्नु पर्छ र आवेदन फारम पूरा गर्नु पर्छ।"
+            "नयाँ वा नवीकरण गरिएको नागरिकता प्रमाणपत्रको लागि आवेदन गर्न, तपाईंले आवश्यक कागजातहरू पेश गर्नु पर्छ र आवेदन फारम पूरा गर्नु पर्छ।" //TODO
           );
         } else if (intent === "Court_Proceeding_Request") {
           speak(
@@ -227,11 +260,11 @@ export default function TabTwoScreen() {
           );
         } else if (intent === "Dhara_Nam_Sari") {
           speak(
-            "तपाईंको धरा नाम सारी अनुरोधसँग अगाडि बढ्न, हामीलाई जग्गाको विवरण र कुनै पनि सहायक कागजातहरू चाहिन्छ।"
+            "धारा नामसारी सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक ,  निवेदकको नागरिकताप्रति लिपि , दुई , जग्गाधनी प्रमाण पुर्जाको प्रतिलिपि , ३ , नक्सा पास प्रमाणपत्र , ४ , सम्पत्ति कर बुझाएको प्रमाणपत्र , ५ , धाराको कागज"
           );
         } else if (intent === "Disability_Application") {
           speak(
-            "अपाङ्गता लाभको लागि आवेदन गर्न, कृपया चिकित्सा कागजात र तपाईंको अवस्थाको जानकारी प्रदान गर्नुहोस्।"
+            "अशक्त सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , सामाजिक सुरक्षा भत्ताको प्रतिलिपि , ३ , वृद्धसँगको नाता , ४ , सक्कल चेकबुक , ५ , चालु आर्थिक वर्षको सम्पत्ति कर तिरेको प्रमाणपत्र"
           );
         } else if (intent === "Electricity_Connection_New_House") {
           speak(
@@ -258,12 +291,28 @@ export default function TabTwoScreen() {
             "घर भत्काउनुको आवश्यकता प्रमाणित गर्न, कृपया सम्पत्तिको विवरण र भत्काउनुको कारण प्रदान गर्नुहोस्।"
           );
         } else if (intent === "House_Land_Name_Transfer_Request") {
+          // ghar wa jagga ko naam sarna anurodh garna, kripaya aavashyak kagajat haru pradan garnu hola
+          // संलग्न गर्नु पर्ने कागजातहरु :
+
+          // १) निवेदकको नागरिकता प्रमाणपत्रका प्रतिलिपि
+          // २) जग्गा धनी प्रमाण पुर्जाको प्रतिलिपि
+          // ३) चालु आ. व. सम्मको घर भए सम्पत्ति कर तिरेको प्रमाणपत्र, जग्गा भए मालपोत तिरेको रसिद
+          // ४) नाता प्रमाणित प्रमाणपत्रका प्रतिलिपि
+          // ५) सर्जमिन मुचल्का गरी बुझनु पर्ने भएमा साक्षी बस्नेको नागरिकता प्रमाणपत्रको प्रतिलिपि
+
+          // put above comments this is speak funtion
           speak(
-            "घर वा जग्गाको नाम सार्ने अनुरोध गर्न, कृपया आवश्यक कागजातहरू र सार्ने विवरण प्रदान गर्नुहोस्।"
+            "घर वा जग्गाको नाम सार्नको लागि अनुरोध गर्न, कृपया आवश्यक कागजातहरू संलग्न गर्नु पर्ने कागजातहरु : १) निवेदकको नागरिकता प्रमाणपत्रका प्रतिलिपि २)जग्गा धनी प्रमाण पुर्जाको प्रतिलिपि ३) चालु आ. व. सम्मको घर भए सम्पत्ति कर तिरेको प्रमाणपत्र, जग्गा भए मालपोत तिरेको रसिद ४) नाता प्रमाणित प्रमाणपत्रका प्रतिलिपि ५) सर्जमिन मुचल्का गरी बुझनु पर्ने भएमा साक्षी बस्नेको नागरिकता प्रमाणपत्रको प्रतिलिपि"
           );
         } else if (intent === "In_English_Application") {
+          // अंग्रेजीमा सिफारिस garna chaine kagajat haru nimna prakar ka chan
+
+          // १) जिउँदो नाता
+          // २) जन्म मिति
+          // ३) स्थायी बसोबास
+
           speak(
-            "कृपया प्रक्रिया गर्नको लागि तपाईंको आवेदनको विवरण अङ्ग्रेजीमा प्रदान गर्नुहोस्।"
+            "अङ्ग्रेजीमा सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक, जिउँदो नाता दुई, जन्म मिति ३, स्थायी बसोबास। "
           );
         } else if (intent === "Indigenous_Certification") {
           speak(
@@ -339,7 +388,7 @@ export default function TabTwoScreen() {
           );
         } else if (intent === "Scholarship_Application") {
           speak(
-            "छात्रवृत्तिको लागि तपाईंको योग्यता निर्धारण गर्न, हामीलाई तपाईंको शैक्षिक उपलब्धिहरू, बाह्यक्रियाकलापहरू, र पारिवारिक आयको जानकारी चाहिन्छ। के तपाईं यी विवरणहरू प्रदान गर्न सक्नुहुन्छ?"
+            "छात्रवृत्तिको लागि सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , विद्यार्थीको जन्मदर्ता , ३ , स्कुलमा अध्ययनको परिचयपत्र , ४ , वडा बाहिरको भए विपन्न सहरी गरिब आर्थिक अवस्था कमजोरको सिफारिस पत्र , ५ , घरधनीले सम्पत्ति कर तिरेको कागजात पत्र बहालमा भए बहाल कर तिरेको कागजात पत्र , ६ , भाडामा बस्नेको हकमा सम्बन्धित गाउँपालिका अथवा नगरपालिकाबाट सिफारिस ल्याउनुपर्ने"
           );
         } else if (intent === "School_Address_Change_Request") {
           speak(
@@ -394,14 +443,19 @@ export default function TabTwoScreen() {
             "कमजोर आर्थिक अवस्थाका आधारमा योग्यता निर्धारण गर्न, हामीलाई तपाईंको आर्थिक स्थितिको विवरण र कुनै पनि सहायक कागजातहरूको आवश्यकता छ।"
           );
         } else {
-          if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(
+          // console.log("socket", socket);
+          socket
+            ? console.log("socket.connected", socket.connected)
+            : console.warn("socket not found");
+
+          if (socket && socket.connected) {
+            socket.emit(
+              "chat_message",
               text +
-                " act as a nepals chatbot and answer the question in nepali all time within one small sentence only"
+                " act as a Nepal's chatbot and answer the question in Nepali all time within one small sentence only"
             );
           } else {
-            console.error("WebSocket connection is not open.");
-            // Handle the WebSocket not open scenario (e.g., display an error message)
+            console.error("Socket.IO connection is not open.");
           }
         }
       })
