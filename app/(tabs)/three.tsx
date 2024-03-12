@@ -21,7 +21,7 @@ Add the following to your app.json, inside the expo section:
   ]
 ]
 
-If you don't have eas installed then install using the following command:
+If you don't have eas installed then install using the following command:j
 npm install -g eas-cli
 
 eas login
