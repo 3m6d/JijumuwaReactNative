@@ -7,57 +7,37 @@ import Voice, {
   SpeechErrorEvent,
   SpeechResultsEvent,
 } from "@react-native-voice/voice";
-import uuid from "react-native-uuid"; // Assuming react-native-uuid provides this
+import uuid from "react-native-uuid";
 import { useRouter } from "expo-router";
 import { CONSTANT_WORDS_TO_SPEAK, blurhash } from "@/constants";
 import { Image } from "expo-image";
 import _ from "lodash";
 import io, { Socket } from "socket.io-client";
 
+const SOCKET_URL = "https://cd17-103-156-26-41.ngrok-free.app";
+const SOCKET_OPTIONS = {
+  transports: ["websocket"],
+  reconnection: true,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  reconnectionAttempts: Infinity,
+};
+
 export default function TabTwoScreen() {
   const [conversation, setConversation] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const router = useRouter(); // Assuming useRouter hook is correctly implemented
+  const router = useRouter();
   const [greeted, setGreeted] = useState(false);
-  const [socket, setSocket] = useState<Socket>(
-    io("https://cd17-103-156-26-41.ngrok-free.app", {
-      transports: ["websocket"],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
-    })
-  );
+  const [conversationEnded, setConversationEnded] = useState(false);
+  const [socket, setSocket] = useState<Socket>(io(SOCKET_URL, SOCKET_OPTIONS));
   const wordBufferRef = useRef("");
   const accumulatedLettersRef = useRef("");
-
-  const options: Speech.SpeechOptions = {
-    voice: "ne-NP-language",
-    pitch: 1,
-    rate: 1,
-    onDone: () => {
-      console.log("Speech finished");
-      // check if speak is complete and then startSpeechToText again
-      Speech.isSpeakingAsync()
-        .then((isSpeaking) => {
-          if (!isSpeaking) {
-            startSpeechToText();
-          }
-        })
-        .catch((error) => {
-          console.log(error);
-        })
-        .finally(() => {
-          startSpeechToText();
-        });
-    },
-    language: "ne-NP",
-  };
 
   useEffect(() => {
     setupVoiceHandlers();
     greetUser();
     initSocket();
+
     return () => {
       Voice.destroy().then(Voice.removeAllListeners);
       if (socket) {
@@ -70,24 +50,23 @@ export default function TabTwoScreen() {
     socket.on("connect", () =>
       console.log("Socket.IO connection established.")
     );
-    socket.on("disconnect", (reason) => {
+    socket.on("disconnect", (reason) =>
       console.log(
         `Socket.IO connection closed due to ${reason}. Attempting to reconnect...`
-      );
-    });
+      )
+    );
 
     socket.on("response", (data) => {
       console.log("Received response from server:", data);
-      handleWebSocketMessage(data.data); // Assuming the server sends an object with a 'data' property
-    }); // Listen for messages with the event name you expect
+      handleWebSocketMessage(data.data);
+    });
 
     setSocket(socket);
   };
 
   const handleWebSocketMessage = (message: string) => {
-    console.log("Received message from server:", message);
-    accumulatedLettersRef.current += message; // Accumulate the entire message first
-    checkAndSpeakBuffer(); // Check and potentially update the conversation
+    accumulatedLettersRef.current += message;
+    checkAndSpeakBuffer();
   };
 
   const updateConversation = (sender: "user" | "sarathi", text: string) => {
@@ -97,22 +76,19 @@ export default function TabTwoScreen() {
     ]);
   };
 
-  // Updated function to handle debounced speaking and updating conversation with a minimum of 3 words
   const checkAndSpeakBuffer = _.debounce(() => {
-    const words = accumulatedLettersRef.current.trim().split(/\s+/); // Split by one or more spaces
+    const words = accumulatedLettersRef.current.trim().split(/\s+/);
     if (words.length >= 3) {
-      // Check if there are at least 3 words
       speak(accumulatedLettersRef.current.trim());
       updateConversation("sarathi", accumulatedLettersRef.current.trim());
-      accumulatedLettersRef.current = ""; // Clear the buffer after speaking and updating the conversation
+      accumulatedLettersRef.current = "";
     } else {
-      // If less than 3 words, just update the last message in the conversation without speaking
       updateConversationWithoutAdding(
         "sarathi",
         accumulatedLettersRef.current.trim()
       );
     }
-  }, 1000); // Adjust debounce time as needed
+  }, 1000);
 
   const updateConversationWithoutAdding = (
     sender: "user" | "sarathi",
@@ -121,16 +97,13 @@ export default function TabTwoScreen() {
     setConversation((prevConvo) => {
       const updatedConvo = [...prevConvo];
       if (updatedConvo.length > 0) {
-        // Modify the last entry if it exists
         const lastMessage = updatedConvo[updatedConvo.length - 1];
         if (lastMessage.sender === sender) {
           lastMessage.text = text;
         } else {
-          // If the last message was not by the same sender, add a new message
           updatedConvo.push({ id: uuid.v4().toString(), text, sender });
         }
       } else {
-        // If no messages yet, add the first message
         updatedConvo.push({ id: uuid.v4().toString(), text, sender });
       }
       return updatedConvo;
@@ -178,20 +151,40 @@ export default function TabTwoScreen() {
 
   const onSpeechError = (error: SpeechErrorEvent) => {
     console.log("Speech error:", error);
-    // Continue listening even if there's an error
     startSpeechToText();
   };
 
-  const speak = (text: string) => {
-    updateConversation("sarathi", text);
-    Speech.speak(text, {
+const speak = (text: string) => {
+ updateConversation("sarathi", text);
+ Speech.speak(text, {
+    voice: "ne-NP-language",
+    pitch: 1,
+    rate: 1,
+    onStart: () =>{
+      stopSpeechToText().catch(error => console.error(error));
+    },
+    language: "ne-NP",
+    onDone: () => {
+      // Directly call startSpeechToText without returning its promise
+      startSpeechToText().catch(error => console.error(error));
+    },
+ });
+};
+
+  const speakGoodbye = () => {
+    if (conversationEnded) return;
+    updateConversation("sarathi", CONSTANT_WORDS_TO_SPEAK.goodbye);
+    Speech.speak(CONSTANT_WORDS_TO_SPEAK.goodbye, {
       voice: "ne-NP-language",
       pitch: 1,
       rate: 1,
       language: "ne-NP",
       onDone: () => {
-        console.log("Speech finished");
-        startSpeechToText();
+        stopSpeechToText().then(() => {
+          console.log("Speech finished");
+          router.replace("/(tabs)/");
+          setConversationEnded(true);
+        });
       },
     });
   };
@@ -204,22 +197,13 @@ export default function TabTwoScreen() {
       );
       return;
     }
-    //goodbye| dhanyabad
     const byeRegex = new RegExp(/(bye|goodbye|बिदाई|धन्यवाद)/i);
-
     if (byeRegex.test(text)) {
-      speak(CONSTANT_WORDS_TO_SPEAK.goodbye);
-      stopSpeechToText()
-        .then(() => {
-          router.replace("/(tabs)/");
-        })
-        .catch((error) => {
-          console.log(error);
-        });
+      stopSpeechToText().then(() => speakGoodbye());
+      return;
     }
-
-    const uri = "https://api.wit.ai/message?v=20230215&q=" + q;
-    const auth = "Bearer " + process.env.EXPO_PUBLIC_AUTH_TOKEN;
+    const uri = `https://api.wit.ai/message?v=20230215&q=${q}`;
+    const auth = `Bearer ${process.env.EXPO_PUBLIC_AUTH_TOKEN}`;
     fetch(uri, { headers: { Authorization: auth } })
       .then((res) => res.json())
       .then((res) => {
@@ -248,7 +232,7 @@ export default function TabTwoScreen() {
           );
         } else if (intent === "Chhopaya_Request") {
           speak(
-            "तपाईंको छोपाया अनुरोध प्रक्रिया गर्न, कृपया घटनाको विवरण र कुनै पनि समर्थन दस्तावेजहरू प्रदान गर्नुहोस्।"//TODO
+            "तपाईंको छोपाया अनुरोध प्रक्रिया गर्न, कृपया घटनाको विवरण र कुनै पनि समर्थन दस्तावेजहरू प्रदान गर्नुहोस्।" //TODO
           );
         } else if (intent === "Citizenship_Certificate_Request_New_Renew") {
           speak(
