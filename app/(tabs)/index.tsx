@@ -4,71 +4,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { blurhash } from "@/constants";
 import { useRouter } from "expo-router";
-import Voice, { SpeechErrorEvent, SpeechResultsEvent } from "@react-native-voice/voice";
-import { useEffect, useState } from "react";
 
 export default function TabOneScreen() {
   const router = useRouter();
-  let [started, setStarted] = useState(false);
-  let [results, setResults] = useState<string[]>([]);
-  let [shouldListen, setShouldListen] = useState(true); // Controls continuous listening
 
-  useEffect(() => {
-    const onSpeechResults = (result: SpeechResultsEvent) => {
-      setResults(result.value ? result.value : []);
-      const nepaliSarathiRegex = /सारथी|सरथी|सारथि|सारथे|सारथ|सरथि|शारथि/;
-      console.log(results[0]);
-      if (result.value && result.value[0].match(nepaliSarathiRegex)) {
-        setShouldListen(false);
-        stopSpeechToText().then(() => {
-          router.replace("/(tabs)/two");
-        });
-      }
-      // Continue listening
-      if (shouldListen) restartListening();
-    };
-
-    const onSpeechError = (error : SpeechErrorEvent) => {
-      console.log("onSpeechError", error);
-      // Continue listening even if there's an error
-      if (shouldListen) restartListening();
-    };
-
-    const restartListening = async () => {
-      await Voice.stop();
-      await Voice.start("ne-NP", {
-        EXTRA_LANGUAGE_MODEL: "LANGUAGE_MODEL_FREE_FORM",
-        EXTRA_MAX_RESULTS: 1,
-        EXTRA_PARTIAL_RESULTS: true,
-      });
-    };
-
-    Voice.onSpeechResults = onSpeechResults;
-    Voice.onSpeechError = onSpeechError;
-
-    // Start listening initially
-    startSpeechToText();
-
-    return () => {
-      setShouldListen(false); // Stop listening on component unmount
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  }, [shouldListen]);
-
-  const startSpeechToText = async () => {
-    console.log('voice available:', Voice.isAvailable());
-    await Voice.start("ne-NP", {
-      EXTRA_LANGUAGE_MODEL: "LANGUAGE_MODEL_FREE_FORM",
-      EXTRA_MAX_RESULTS: 1,
-      EXTRA_PARTIAL_RESULTS: true,
-    });
-    setStarted(true);
-  };
-
-  const stopSpeechToText = async () => {
-    await Voice.stop();
-    setStarted(false);
-  };
 
   return (
     <View className="flex-1 items-center justify-between p-4">
@@ -105,19 +44,25 @@ export default function TabOneScreen() {
       </View>
 
       <View className="flex-1 items-center justify-center bg-transparent w-full">
-        <Text className="text-xl text-black mb-4">
-          Press the button below to start
+
+        <Text className="text-2xl text-black">
+          नमस्ते
+        </Text>
+        <Text className="text-xl text-black">
+          किन आउँनु भो ? हजुर!
+        </Text>
+        <Text className="text-xl text-black font-bold mb-2">
+          जिज्ञासा राख्न तल थिच्नुहोस्
         </Text>
         </View>
       <TouchableOpacity
-        className="bg-yellow-400 py-2 px-10 rounded-full z-10"
+        className="bg-yellow-400 py-4 px-10 rounded-full z-10"
         onPress={() => {
-          shouldListen ? stopSpeechToText() : startSpeechToText();
-          setShouldListen(!shouldListen);
+          router.replace("/(tabs)/two");
         }}
       >
-        <Text className="text-4xl text-center font-extrabold text-gray-800">
-          {started ? "Stop Listening" : "Start Talking"}
+        <Text className="text-2xl text-center font-extrabold text-gray-800">
+          अगाडी बढ्नुहोस्
         </Text>
       </TouchableOpacity>
       {/* Rest of your component's JSX */}

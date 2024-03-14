@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "@/components/Themed";
 import { LinearGradient } from "expo-linear-gradient";
 import Conversation, { Message } from "@/components/Coversation";
@@ -13,6 +13,7 @@ import { CONSTANT_WORDS_TO_SPEAK, blurhash } from "@/constants";
 import { Image } from "expo-image";
 import _ from "lodash";
 import io, { Socket } from "socket.io-client";
+import { useFocusEffect } from "@react-navigation/native";
 
 const SOCKET_URL = "https://cd17-103-156-26-41.ngrok-free.app";
 const SOCKET_OPTIONS = {
@@ -27,24 +28,30 @@ export default function TabTwoScreen() {
   const [conversation, setConversation] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const [greeted, setGreeted] = useState(false);
-  const [conversationEnded, setConversationEnded] = useState(false);
   const [socket, setSocket] = useState<Socket>(io(SOCKET_URL, SOCKET_OPTIONS));
-  const wordBufferRef = useRef("");
   const accumulatedLettersRef = useRef("");
 
-  useEffect(() => {
-    setupVoiceHandlers();
-    greetUser();
-    initSocket();
 
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
-      if (socket) {
-        socket.close();
-      }
-    };
-  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Start the microphone or any setup when the screen is focused
+      setupVoiceHandlers();
+      greetUser();
+      initSocket();
+
+      // Function to run when screen is blurred or navigated away from
+      return () => {
+        // Stop the microphone
+        stopSpeechToText();
+        resetAppState();
+        Voice.destroy().then(Voice.removeAllListeners);
+        if (socket) {
+          socket.close();
+        }
+      };
+    }, [])
+  );
 
   const initSocket = () => {
     socket.on("connect", () =>
@@ -129,11 +136,21 @@ export default function TabTwoScreen() {
     }
   };
 
+  const resetAppState = () => {
+    // Reset all states to their initial values
+    setConversation([]);
+    setLoading(false);
+    // Any other state resets should go here
+
+    // If you have global state or context that needs to be reset, do it here as well
+    // For example, if using Redux, you might dispatch an action to reset the store
+  };
+
   const stopSpeechToText = async () => {
     try {
       await Voice.stop();
     } catch (error) {
-      console.log("Voice stop error:", error);
+      console.error("Voice stop error:", error);
     }
   };
 
@@ -154,39 +171,53 @@ export default function TabTwoScreen() {
     startSpeechToText();
   };
 
-const speak = (text: string) => {
- updateConversation("sarathi", text);
- Speech.speak(text, {
-    voice: "ne-NP-language",
-    pitch: 1,
-    rate: 1,
-    onStart: () =>{
-      stopSpeechToText().catch(error => console.error(error));
-    },
-    language: "ne-NP",
-    onDone: () => {
-      // Directly call startSpeechToText without returning its promise
-      startSpeechToText().catch(error => console.error(error));
-    },
- });
-};
+  const speak = (text: string) => {
+    updateConversation("sarathi", text);
+    Speech.speak(text, {
+      voice: "ne-NP-language",
+      pitch: 1,
+      rate: 1,
+      onStart: () => {
+        stopSpeechToText().catch((error) => console.error(error));
+      },
+      language: "ne-NP",
+      onDone: () => {
+        // Directly call startSpeechToText without returning its promise
+        startSpeechToText().catch((error) => console.error(error));
+      },
+    });
+  };
 
-  const speakGoodbye = () => {
-    if (conversationEnded) return;
-    updateConversation("sarathi", CONSTANT_WORDS_TO_SPEAK.goodbye);
-    Speech.speak(CONSTANT_WORDS_TO_SPEAK.goodbye, {
+  const speakGoodbye = async () => {
+    // Prepare the speech options
+    const speechOptions = {
       voice: "ne-NP-language",
       pitch: 1,
       rate: 1,
       language: "ne-NP",
-      onDone: () => {
-        stopSpeechToText().then(() => {
-          console.log("Speech finished");
-          router.replace("/(tabs)/");
-          setConversationEnded(true);
-        });
+      onStart: () => {
+        stopSpeechToText().catch((error) => console.error(error));
       },
-    });
+      onDone: () => {
+        // Once speaking is done, navigate away
+        console.log("Speech finished");
+        navigateAway();
+      },
+    };
+
+    // Update conversation before speaking
+    updateConversation("sarathi", CONSTANT_WORDS_TO_SPEAK.goodbye);
+
+    // Speak the goodbye message
+    Speech.speak(CONSTANT_WORDS_TO_SPEAK.goodbye, speechOptions);
+  };
+
+  const navigateAway = async () => {
+    // Ensure microphone is fully stopped
+    await stopSpeechToText();
+
+    // Then navigate
+    router.navigate("/(tabs)/");
   };
 
   const processSpeechResult = (text: string) => {
@@ -232,7 +263,7 @@ const speak = (text: string) => {
           );
         } else if (intent === "Chhopaya_Request") {
           speak(
-            "तपाईंको छोपाया अनुरोध प्रक्रिया गर्न, कृपया घटनाको विवरण र कुनै पनि समर्थन दस्तावेजहरू प्रदान गर्नुहोस्।"//TODO xaina pdf ma
+            "तपाईंको छोपाया अनुरोध प्रक्रिया गर्न, कृपया घटनाको विवरण र कुनै पनि समर्थन दस्तावेजहरू प्रदान गर्नुहोस्।" //TODO xaina pdf ma
           );
         } else if (intent === "Citizenship_Certificate_Request_New_Renew") {
           speak(
@@ -294,8 +325,7 @@ const speak = (text: string) => {
           speak(
             "जग्गा दर्ता सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रमाणपत्रको प्रतिलिपि, दुई, उत्तार, तिन,स्थलगत सर्जमिन। "
           );
-        }
-        else if (intent === "Lost_Land_Certificate") {
+        } else if (intent === "Lost_Land_Certificate") {
           speak(
             "जग्गाधनी प्रमाणपुर्जा हराएको लागि सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, जग्गाधनी प्रमाण पुर्जाको प्रतिलिपि, तिन, घरभए सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि , चार, जग्गा भए मालपोत तिरेको रसिद, पाँच, सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि, छ, निवेदकको दुई प्रति फोटो  । "
           );
@@ -379,8 +409,7 @@ const speak = (text: string) => {
           speak(
             "अस्थायी बसोबासको सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, घरधनीको नागरिकता, तिन, चालु आ. व. को सम्पत्ति कर तिरेको प्रमाणपत्र, चार, विदेशी भए नेपाल प्रवेश गरेको पासपोर्टको प्रतिलिपि, पाँच, कम्तिमा तीन महिना बसोबास गरेको सम्झौतापत्र।"
           );
-        }
-        else if (intent === "Unmarried_Status_Verification") {
+        } else if (intent === "Unmarried_Status_Verification") {
           speak(
             "अविवाहित प्रमाणित सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि, तिन, स्थलगत सर्जमिन मुचुल्का, चार, सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि। "
           );
@@ -414,7 +443,7 @@ const speak = (text: string) => {
             socket.emit(
               "chat_message",
               text +
-              " act as a Nepal's chatbot and answer the question in Nepali all time within one small sentence only"
+                " act as a Nepal's chatbot and answer the question in Nepali all time within one small sentence only"
             );
           } else {
             console.error("Socket.IO connection is not open.");
