@@ -1,6 +1,8 @@
-{
+const IS_DEV = process.env.APP_VARIANT === 'development';
+
+export default {
   "expo": {
-    "name": "sarathi",
+    "name": IS_DEV ? "sarathi (DEV)" : "sarathi",
     "slug": "sarathi",
     "version": "1.0.0",
     "orientation": "landscape",
@@ -17,7 +19,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.manavkhaka0.sarathi"
+      "bundleIdentifier": IS_DEV ? "com.manavkhaka0.sarathi.dev" : "com.manavkhaka.sarathi",
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +29,7 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.manavkhaka0.sarathi"
+      "package":IS_DEV ? "com.manavkhaka0.sarathi" : "com.manavkhaka.sarathi",
     },
     "web": {
       "bundler": "metro",

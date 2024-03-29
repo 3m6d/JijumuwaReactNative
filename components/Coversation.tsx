@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 
 export type Message = {
   id: string;
@@ -12,47 +12,54 @@ type ConversationProps = {
   loading: boolean;
 };
 
-const Conversation: React.FC<ConversationProps> = ({ messages,loading }) => {
+const Conversation: React.FC<ConversationProps> = ({ messages, loading }) => {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     // Using a timeout to ensure that scrollToEnd is called after the new item is rendered
     const timer = setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100); // You may need to adjust this duration
+    }, 100);
 
+    // You may need to adjust this duration
     return () => clearTimeout(timer);
   }, [messages]);
 
-  const renderItem = ({ item }: { item: Message }) => {
+  const renderItem = ({ item, index }: { item: Message; index: number }) => {
     const isSarathi = item.sender === 'sarathi';
+    const isLastItem = index === messages.length - 1;
+
     return (
-      <View style={[styles.messageRow, isSarathi ? null : styles.userRow]}>
-        <View style={isSarathi ? styles.sarathiBubble : styles.userBubble}>
-          <Text style={styles.label}>{isSarathi ? 'सारथी' : 'तपाई'}</Text>
-          <Text style={isSarathi ? styles.sarathiText : styles.userText}>
-            {item.text}
-          </Text>
+      <View>
+        <View style={[styles.messageRow, isSarathi ? null : styles.userRow]}>
+          <View style={isSarathi ? styles.sarathiBubble : styles.userBubble}>
+            <Text style={styles.label}>{isSarathi ? 'सारथी' : 'तपाई'}</Text>
+            <Text style={isSarathi ? styles.sarathiText : styles.userText}>{item.text}</Text>
+          </View>
         </View>
+        {isLastItem && loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#ff0011" />
+          </View>
+        )}
       </View>
     );
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
-    >
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -96,6 +103,10 @@ const styles = StyleSheet.create({
   },
   userText: {
     color: '#000000',
+  },
+  loadingContainer: {
+    alignSelf: 'flex-end',
+    marginVertical: 4,
   },
 });
 
