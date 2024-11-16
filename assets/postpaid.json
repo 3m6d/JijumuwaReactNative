@@ -1,0 +1,382 @@
+{
+  "packages": [
+    {
+      "name": "20 GB Data Pack for 28 days",
+      "validity": "28 Days",
+      "price": "Rs. 499",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "1 Mbps Unlimited Data",
+      "validity": "1 Day",
+      "price": "Rs. 49",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "7 GB Data Pack for 28 days",
+      "validity": "28 Days",
+      "price": "Rs. 299",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "13 GB Data Pack for 28 days",
+      "validity": "28 Days",
+      "price": "Rs. 399",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "1 GB Data Pack for 1 day",
+      "validity": "1 Day",
+      "price": "Rs. 29",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "50 GB Data Pack for 28 days",
+      "validity": "28 Days",
+      "price": "Rs. 899",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "4 GB Data Pack for 1 day",
+      "validity": "1 Day",
+      "price": "Rs. 99",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "5 GB Data Pack for 7 days",
+      "validity": "7 Days",
+      "price": "Rs. 109",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "12 GB Data Pack for 7 days",
+      "validity": "7 Days",
+      "price": "Rs. 199",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "100 GB Data Pack for 28 days",
+      "validity": "28 Days",
+      "price": "Rs. 999",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "1.5 GB per day for 30 Days",
+      "validity": "30 Days",
+      "price": "Rs. 599",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "700 MB per day for 28 days",
+      "validity": "28 Days",
+      "price": "Rs. 299",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "Combo 199 Pack for 7 days",
+      "validity": "7 Days",
+      "price": "Rs. 199",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "Speed Upto 5 Mbps Data Pack For 1 Day",
+      "validity": "1 Day",
+      "price": "Rs. 89",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "Speed Upto 5 Mbps Data Pack For 28 Days",
+      "validity": "28 Days",
+      "price": "Rs. 999",
+      "category": "Data Package (Autumn)"
+    },
+    {
+      "name": "Add-On 4GB All Time Data Pack",
+      "validity": "1 Day",
+      "price": "Rs. 50",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Add-On 10 GB All Time Data Pack",
+      "validity": "3 Days",
+      "price": "Rs. 99",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Add-On 2GB All Time Data Pack",
+      "validity": "1 Day",
+      "price": "Rs. 40",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Add-On 20 min Off-Net Voice Pack",
+      "validity": "1 Day",
+      "price": "Rs. 15",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Add-On 1GB All Time Data Pack",
+      "validity": "1 Day",
+      "price": "Rs. 30",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Postpaid Data Package (Rs.373)_6GB",
+      "validity": "30 Days",
+      "price": "Rs. 373",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Postpaid Voice Package (Rs.373)_800min",
+      "validity": "30 Days",
+      "price": "Rs. 373",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Sajilo Unlimited 999 Rental Pack",
+      "validity": "30 Days",
+      "price": "Rs. 999",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Sajilo Unlimited Executive 1999 Rental Pack",
+      "validity": "30 Days",
+      "price": "Rs. 1999",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Sajilo Unlimited 699 Rental Pack",
+      "validity": "30 Days",
+      "price": "Rs. 699",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Sajilo Unlimited 799 Rental Pack",
+      "validity": "30 Days",
+      "price": "Rs. 799",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Sajilo Unlimited 1499 Rental Pack",
+      "validity": "30 Days",
+      "price": "Rs. 1499",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Postpaid 499 Pack",
+      "validity": "30 Days",
+      "price": "Rs. 499",
+      "category": "Postpaid Rental Included Packages"
+    },
+    {
+      "name": "Night Combo Pack(10pm - 6am)",
+      "validity": "1 Day",
+      "price": "Rs. 59",
+      "category": "Unlimited Night Packs"
+    },
+    {
+      "name": "Night NT-NT Unlimited Voice (11:00 PM - 6:00 AM)",
+      "validity": "1 Day",
+      "price": "Rs. 15",
+      "category": "Unlimited Night Packs"
+    },
+    {
+      "name": "Youtube Add-On 10 GB Data Pack for 1 Day",
+      "validity": "1 Day",
+      "price": "Rs. 99",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Facebook Add-On 10 GB Data Pack for 1 Day",
+      "validity": "1 Day",
+      "price": "Rs. 99",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Youtube Add on pack -5 GB",
+      "validity": "1 Day",
+      "price": "Rs. 50",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Facebook Add on pack -1 GB",
+      "validity": "1 Day",
+      "price": "Rs. 30",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Facebook Add on pack -2 GB",
+      "validity": "1 Day",
+      "price": "Rs. 40",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Youtube Add on pack -1 GB",
+      "validity": "1 Day",
+      "price": "Rs. 30",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Facebook Add on pack -5 GB",
+      "validity": "1 Day",
+      "price": "Rs. 50",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Youtube Add on pack -2 GB",
+      "validity": "1 Day",
+      "price": "Rs. 40",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Unlimited YouTube Pack",
+      "validity": "3 Days",
+      "price": "Rs. 55",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "Unlimited Facebook Pack",
+      "validity": "3 Days",
+      "price": "Rs. 55",
+      "category": "Unlimited Fb/Youtube Pack"
+    },
+    {
+      "name": "555 min All Net National Voice Pack for 28 Days",
+      "validity": "28 Days",
+      "price": "Rs. 279",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "150 min All Net National Voice Pack for 1 Day",
+      "validity": "1 Day",
+      "price": "Rs. 69",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "30 min All Net National Voice Pack for 1 Day",
+      "validity": "1 Day",
+      "price": "Rs. 20",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "299 min All Net National Voice Pack for 28 Days",
+      "validity": "28 Days",
+      "price": "Rs. 169",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "30 min NT-NT All Time Voice Pack for 1 Day",
+      "validity": "1 Day",
+      "price": "Rs. 18",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "299 min NT-NT All Time Voice Pack for 28 Days",
+      "validity": "28 Days",
+      "price": "Rs. 159",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "150 min NT-NT All Time Voice Pack for 1 Day",
+      "validity": "1 Day",
+      "price": "Rs. 59",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "555 min NT-NT All Time Voice Pack for 28 Days",
+      "validity": "28 Days",
+      "price": "Rs. 269",
+      "category": "Voice Pack"
+    },
+    {
+      "name": "Unlimited NT-NT Day Voice Pack - 5:00 AM - 5:00 PM",
+      "validity": "1 Day",
+      "price": "Rs. 19",
+      "category": "Day Packs"
+    },
+    {
+      "name": "200 SMS All-Net (National)",
+      "validity": "3 Days",
+      "price": "Rs. 29",
+      "category": "SMS Packs"
+    },
+    {
+      "name": "100 SMS All-Net (National)",
+      "validity": "1 Day",
+      "price": "Rs. 15",
+      "category": "SMS Packs"
+    },
+    {
+      "name": "300 SMS All-Net (National)",
+      "validity": "28 Days",
+      "price": "Rs. 98",
+      "category": "SMS Packs"
+    },
+    {
+      "name": "900 SMS All-Net (National)",
+      "validity": "28 Days",
+      "price": "Rs. 130",
+      "category": "SMS Packs"
+    },
+    {
+      "name": "Unlimited One Hour Pack",
+      "validity": "60 mins from subscription",
+      "price": "Rs. 24",
+      "category": "Unlimited Hourly Data Pack"
+    },
+    {
+      "name": "Unlimited Data for 2 Hours",
+      "validity": "2 Hours",
+      "price": "Rs. 35",
+      "category": "Unlimited Hourly Data Pack"
+    },
+    {
+      "name": "India Voice Call - 20 Minutes",
+      "validity": "1 day",
+      "price": "Rs. 80",
+      "category": "International Services"
+    },
+    {
+      "name": "India Voice Call - 75 Minutes",
+      "validity": "7 days",
+      "price": "Rs. 270",
+      "category": "International Services"
+    },
+    {
+      "name": "India Daily Roaming Pack (100 MB)",
+      "validity": "1 Day",
+      "price": "Rs. 100",
+      "category": "International Services"
+    },
+    {
+      "name": "India Monthly Roaming Pack (1024 MB)",
+      "validity": "28 Days",
+      "price": "Rs. 900",
+      "category": "International Services"
+    },
+    {
+      "name": "India Weekly Roaming Pack (500 MB)",
+      "validity": "7 Days",
+      "price": "Rs. 450",
+      "category": "International Services"
+    },
+    {
+      "name": "China Voice Call - 45 Minutes",
+      "validity": "7 Days",
+      "price": "Rs. 150",
+      "category": "International Services"
+    },
+    {
+      "name": "China Voice Call - 10 Minutes",
+      "validity": "1 Day",
+      "price": "Rs. 35",
+      "category": "International Services"
+    },
+    {
+      "name": "China Voice Call - 165 Minutes",
+      "validity": "30 Days",
+      "price": "Rs. 500",
+      "category": "International Services"
+    }
+  ]
+}

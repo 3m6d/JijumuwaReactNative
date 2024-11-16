@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View } from "@/components/Themed";
 import { LinearGradient } from "expo-linear-gradient";
 import Conversation, { Message } from "@/components/Coversation";
@@ -9,30 +9,35 @@ import Voice, {
 } from "@react-native-voice/voice";
 import uuid from "react-native-uuid";
 import { useRouter } from "expo-router";
-import { CONSTANT_WORDS_TO_SPEAK, blurhash } from "@/constants";
+import { blurhash } from "@/constants";
 import { Image } from "expo-image";
-import _, { set } from "lodash";
 import { useFocusEffect } from "@react-navigation/native";
-import OpenAI from "openai";
-import { ChatCompletionMessageParam } from "openai/resources";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import intentResponses from "@/constants/intentResponses";
+import CONSTANT_WORDS_TO_SPEAK from "@/constants/wordsToSpeak";
+
+// {"entities": {}, "intents": [{"confidence": 0.9709269656906307, "id": "1436792370584032", "name": "Dhara_Nam_Sari"}], "text": "ढल निकास व्यवस्थापन गर्न के चाहिन्छ", "traits": {}}
+
+type IntentResponse = {
+  entities: Record<string, any>;
+  intents: { confidence: number; id: string; name: string }[];
+  text: string;
+  traits: Record<string, any>;
+};
 
 export default function TabTwoScreen() {
   const [conversation, setConversation] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<ChatCompletionMessageParam[]>([
-
-  ]);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const router = useRouter();
-  const [latestSPeakMessage, setLatestSpeakMessage] = useState("");
+  const [latestSpeakMessage, setLatestSpeakMessage] = useState("");
+
   useFocusEffect(
     useCallback(() => {
-      // Start the microphone or any setup when the screen is focused
       setupVoiceHandlers();
       greetUser();
 
-      // Function to run when screen is blurred or navigated away from
       return () => {
-        // Stop the microphone
         stopSpeechToText();
         resetAppState();
         Voice.destroy().then(Voice.removeAllListeners);
@@ -40,11 +45,8 @@ export default function TabTwoScreen() {
     }, [])
   );
 
-
-
-
   const updateConversation = (sender: "user" | "sarathi", text: string) => {
-    setConversation((prevConvo: Message[]) => [
+    setConversation((prevConvo) => [
       ...prevConvo,
       { id: uuid.v4().toString(), text, sender },
     ]);
@@ -57,26 +59,23 @@ export default function TabTwoScreen() {
   };
 
   const greetUser = () => {
-    const greeting = CONSTANT_WORDS_TO_SPEAK.greet_customer;
-    speak(greeting);
+    speak(CONSTANT_WORDS_TO_SPEAK.greet_customer);
   };
 
   const startSpeechToText = async () => {
-    try {
-      await Voice.start("ne-NP");
-    } catch (error) {
-      console.log("Voice start error:", error);
+    if (!isSpeaking) {
+      try {
+        await Voice.start("ne-NP");
+      } catch (error) {
+        console.log("Voice start error:", error);
+      }
     }
   };
 
   const resetAppState = () => {
-    // Reset all states to their initial values
     setConversation([]);
     setLoading(false);
-    // Any other state resets should go here
-
-    // If you have global state or context that needs to be reset, do it here as well
-    // For example, if using Redux, you might dispatch an action to reset the store
+    setIsSpeaking(false);
   };
 
   const stopSpeechToText = async () => {
@@ -88,9 +87,7 @@ export default function TabTwoScreen() {
   };
 
   const onSpeechResults = (result: SpeechResultsEvent) => {
-    const text = result.value
-      ? result.value[0]
-      : CONSTANT_WORDS_TO_SPEAK.error_understand;
+    const text = result.value?.[0] || CONSTANT_WORDS_TO_SPEAK.error_understand;
     updateConversation("user", text);
     processSpeechResult(text);
   };
@@ -105,308 +102,73 @@ export default function TabTwoScreen() {
   };
 
   const speak = (text: string) => {
+    const processedText = text.replace(/[१२३४५६७८९०]+/g, (match) => {
+      return match.split("").join(" ");
+    });
+
     updateConversation("sarathi", text);
     setLatestSpeakMessage(text);
-    Speech.speak(text, {
+    setIsSpeaking(true);
+
+    Speech.speak(processedText, {
       voice: "ne-NP-language",
       pitch: 1,
       rate: 1,
       onStart: () => {
-        stopSpeechToText().catch((error) => console.error(error));
+        stopSpeechToText().catch(console.error);
       },
       language: "ne-NP",
       onDone: () => {
-        // Directly call startSpeechToText without returning its promise
-        startSpeechToText().catch((error) => console.error(error));
+        setIsSpeaking(false);
+        if (!loading) {
+          startSpeechToText().catch(console.error);
+        }
       },
     });
-  };
-
-  const speakGoodbye = async () => {
-    // Prepare the speech options
-    const speechOptions = {
-      voice: "ne-NP-language",
-      pitch: 1,
-      rate: 1,
-      language: "ne-NP",
-      onStart: () => {
-        stopSpeechToText().catch((error) => console.error(error));
-      },
-      onDone: () => {
-        // Once speaking is done, navigate away
-        console.log("Speech finished");
-        navigateAway();
-      },
-    };
-
-    // Update conversation before speaking
-    updateConversation("sarathi", CONSTANT_WORDS_TO_SPEAK.goodbye);
-
-    // Speak the goodbye message
-    Speech.speak(CONSTANT_WORDS_TO_SPEAK.goodbye, speechOptions);
-  };
-
-  const navigateAway = async () => {
-    // Ensure microphone is fully stopped
-    await stopSpeechToText();
-
-    // Then navigate
-    router.navigate("/(tabs)/");
   };
 
   const processSpeechResult = (text: string) => {
     const q = encodeURIComponent(text);
     setLoading(true);
+
     if (q === "No result") {
       speak(
         "तपाईले के भन्नु भएको छ मैले ठ्याक्कै बुझिन, कृपया स्पष्ट रूपमा भन्न सक्नुहुन्छ"
       );
       return;
     }
-    const byeRegex = new RegExp(/(bye|goodbye|बिदाई|धन्यवाद)/i);
-    const pheriRegex = new RegExp(
-      /(फेरि भन्नुहोस्|फेरि भन्नु भएको छ|फेरि भन्नुहोस्)/i
-    );
-    const maileBujhinaRegex = new RegExp(
-      /(बुझिन|मैले ठ्याक्कै बुझिन|मैले ठ्याक्कै बुझिन)/i
-    );
 
-    if (maileBujhinaRegex.test(text) || pheriRegex.test(text)) {
-      speak(latestSPeakMessage);
+    const regexMap = {
+      bye: /(bye|goodbye|बिदाई|धन्यवाद)/i,
+      repeat: /(फेरि भन्नुहोस्|फेरि भन्नु भएको छ|फेरि भन्नुहोस्)/i,
+      notUnderstood: /(बुझिन|मैले ठ्याक्कै बुझिन|मैले ठ्याक्कै बुझिन)/i,
+    };
+
+    if (regexMap.notUnderstood.test(text) || regexMap.repeat.test(text)) {
+      speak(latestSpeakMessage);
       return;
     }
-    if (byeRegex.test(text)) {
-      stopSpeechToText().then(() => speakGoodbye());
+    if (regexMap.bye.test(text)) {
+      stopSpeechToText().then(speakGoodbye);
       return;
     }
-    const uri = `https://api.wit.ai/message?v=20230215&q=${q}`;
+
+    const uri = `https://api.wit.ai/message?v=20241113&q=${q}`;
     const auth = `Bearer ${process.env.EXPO_PUBLIC_AUTH_TOKEN}`;
+
     fetch(uri, { headers: { Authorization: auth } })
       .then((res) => res.json())
-      .then(async (res) => {
-        // Process the response from Wit.ai here
-        console.log(res);
-
-        // Example: Extract intent from Wit.ai response
-        const intent =
-          res.intents && res.intents.length > 0 ? res.intents[0].name : null;
+      .then(async (res: IntentResponse) => {
+        const intent = res.intents?.[0]?.name || "No_Intent";
         console.log("Intent : " + intent);
-        if (intent === "Alive_Verification") {
-          speak(
-            "जीवित नाता प्रमाणित गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्: एक, निवेदकको नागरिकताको प्रतिलिपि , दुई , नाता कायम गर्नुपर्ने सबैको नागरिकताको प्रतिलिपि , तिन  , २ २ प्रतिवटा अटोसाइज फोटो , चार , चालु आर्थिक वर्षको सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि"
-          );
-        } else if (intent === "Business_Closure_Request") {
-          speak(
-            " व्यवसाय बन्द गर्न सिफारिसको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक , निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , सक्कल व्यवसाय प्रमाणपत्र"
-          );
-        } else if (intent === "Business_Registration") {
-          speak(
-            "व्यवसाय दर्ता गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक , निवेदन पत्र ,  दुई , नागरिकता प्रमाणपत्रको प्रमाणित प्रतिलिपि , तिन , विदेशीको हकमा राहदानीको प्रमाणित प्रतिलिपि वा सम्बन्धित दुतावासको निजको परिचय खुल्ने सिफारिस , चार , २ प्रति फोटो , पाँच , घरबहाल सम्झौता , छ , आफ्नै घर टहरा भए चालु आर्थिक वर्षसम्मको मालपोत र घर जग्गाको कर तिरेको , सात, स्थानीय तहको नाममा दर्ता नगरी प्यान वा अन्य निकायमा दर्ता गरी व्यवसाय दर्ता गरेको हकमा अन्य निकायबाट जारी गरेको व्यवसाय प्रमाणपत्रको प्रमाणित प्रतिलिपि"
-          );
-        } else if (intent === "Business_Relocation_Request") {
-          speak(
-            "व्यवसाय ठाउँसारी सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक , निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , सक्कल व्यवसाय प्रमाणपत्र , तिन , ठाउँसारी जाने घरधनीको सम्झौतापत्रको प्रतिलिपि"
-          );
-        } else if (intent === "Citizenship_Certificate_Request_New_Renew") {
-          speak(
-            "नागरिकता र प्रतिलिपि सिफारिसका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। \nएक) निवेदन पत्र र आमा र बुवाको नागरिकता प्रमाणपत्रको प्रतिलिपि, \nदुई) जन्मदर्ता प्रमाणपत्रको प्रतिलिपि, \nतिन) विवाहित महिलाको हकमा पति र आमा र बुबाको नागरिकता प्रमाणपत्रको प्रतिलिपि , \nचार) चारित्रिक प्रमाणपत्रको प्रतिलिपि (विद्यार्थीको हकमा), \nपाँच) विवाह दर्ता प्रमाणपत्रको प्रतिलिपि (विवाहिताको हकमा), \nछ) बसाईसराई आएका हकमा बसाईसराईको प्रमाणपत्रका प्रतिलिपि, \nसात) दुवै कान देखिने पासपोर्ट साइजको फोटो दुई प्रति, \nआठ) चालु आ.व. को सम्पत्ति कर निर्धारण प्रमाणपत्र, \nनौ) कर्मचारी परिवारको हकमा सम्बन्धित कार्यालयको सिफारिस \nदस) प्रतिलिपि नागरिकताको हकमा पुराना नागरिकताको प्रतिलिपि"
-          );
-        } else if (intent === "Court_Proceeding_Request") {
-          speak(
-            "कोट-फि मिनाहा सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, अदालतको पर्चा, तिन , विपन्न अथवा एकल महिला अथवा असाहाय व्यक्तिको कागजत।"
-          );
-        } else if (intent === "Dhara_Nam_Sari") {
-          speak(
-            "धारा नामसारी सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक ,  निवेदकको नागरिकताप्रति लिपि , दुई , जग्गाधनी प्रमाण पुर्जाको प्रतिलिपि , तिन , नक्सा पास प्रमाणपत्र , चार , सम्पत्ति कर बुझाएको प्रमाणपत्र , पाँच , धाराको कागज"
-          );
-        } else if (intent === "Disability_Application") {
-          speak(
-            "अशक्त सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , सामाजिक सुरक्षा भत्ताको प्रतिलिपि , तिन, वृद्धसँगको नाता , चार, सक्कल चेकबुक , पाँच, चालु आर्थिक वर्षको सम्पत्ति कर तिरेको प्रमाणपत्र"
-          );
-        } else if (intent === "Electricity_Connection_New_House") {
-          speak(
-            " नयाँ घरमा विद्युत जडान सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। \nएक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, जग्गा धनी प्रमाणपुर्जाको प्रतिलिपि, तिन, नक्सा पास प्रमाणपत्रको प्रतिलिपि, चार, चालु आ.व. को सम्पत्ति कर तिरेको प्रमाणपत्र।"
-          );
-        } else if (intent === "Electricity_Connection_Old_House") {
-          speak(
-            "पुरानो घरमा विद्युत जडान सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रतिलिपि, दुई, जग्गा धनी प्रमाणपुर्जाको प्रतिलिपि, तिन, सम्पत्ति कर तिरेको प्रमाणपत्रको प्रतिलिपि, चार, नापी नक्साको प्रतिलिपि। "
-          );
-        } else if (intent === "Electricity_Meter_Registration_Transfer") {
-          speak(
-            "विद्युत मिटर नामसारी सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रतिलिपि, दुई, जग्गाधनी प्रमाणपुर्जाको प्रतिलिपि, तिन, नक्सा पास प्रमाणपत्र, चार, सम्पत्ति कर बुझाएको प्रमाणपत्र, पाँच, विद्युत महसुलको कागज।"
-          );
-        } else if (intent === "Free_Health_Treatment_Application") {
-          speak(
-            "निशुल्क स्वास्थ्य उपचारको लागि सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, बिरामीको नागरिकता र , तिन, बिरामीको अस्पताल भर्नाको कागज।"
-          );
-        } else if (intent === "Guardian_Application") {
-          speak(
-            "संरक्षक सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, ७० वर्ष विरुद्धको नागरिकताको प्रतिलिपि, तिन, नाता खोलेको प्रमाणपत्र, चार, सम्पत्ति कर तिरेको प्रमाणपत्रको प्रतिलिपि । "
-          );
-        } else if (intent === "House_Demolition_Verification") {
-          speak(
-            "घर पाताल प्रमाणितका सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, जग्गाधनी प्रमाणपुर्जा प्रतिलिपि, तिन, सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि, चार, स्थलगत निरीक्षण प्रतिवेदन। "
-          );
-        } else if (intent === "House_Land_Name_Transfer_Request") {
-          speak(
-            "घर वा जग्गाको नाम सार्नको लागि अनुरोध गर्न, कृपया आवश्यक कागजातहरू संलग्न गर्नु पर्ने कागजातहरु, एक,  निवेदकको नागरिकता प्रमाणपत्रका प्रतिलिपि, दुई, जग्गा धनी प्रमाण पुर्जाको प्रतिलिपि, तिन, चालु आ. व. सम्मको घर भए सम्पत्ति कर तिरेको प्रमाणपत्र, जग्गा भए मालपोत तिरेको रसिद, चार, नाता प्रमाणित प्रमाणपत्रका प्रतिलिपि, पाँच, सर्जमिन मुचल्का गरी बुझनु पर्ने भएमा साक्षी बस्नेको नागरिकता प्रमाणपत्रको प्रतिलिपि"
-          );
-        } else if (intent === "In_English_Application") {
-          speak(
-            "अङ्ग्रेजीमा सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारको छन्। एक , जिउँदो नाता , दुई , जन्म मिति , तिन,स्थायी बसोबास। "
-          );
-        } else if (intent === "Indigenous_Certification") {
-          speak(
-            "आदिवासी जनजाति प्रमाणितको सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रमाणपत्रको प्रतिलिपि, दुई, जनजाति कार्डको प्रतिलिपि, तिन, चालु आ. व. को सम्पत्ति कर तिरेको प्रमाणपत्र।"
-          );
-        } else if (intent === "Inheritance_Rights_Verification") {
-          speak(
-            "फोटो टाँसको लागि तीन पुस्ते खोली सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, जग्गाधनी प्रमाण पुर्जाको प्रतिलिपि, तिन, सम्पत्ति कर तिरेको प्रमाणपत्र, चार, तीन पुस्ते खोलेको कागजत, पाँच, दुई प्रति फोटो। "
-          );
-        } else if (intent === "Land_Registration_Request") {
-          speak(
-            "जग्गा दर्ता सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रमाणपत्रको प्रतिलिपि, दुई, उत्तार, तिन,स्थलगत सर्जमिन। "
-          );
-        } else if (intent === "Lost_Land_Certificate") {
-          speak(
-            "जग्गाधनी प्रमाणपुर्जा हराएको लागि सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, जग्गाधनी प्रमाण पुर्जाको प्रतिलिपि, तिन, घरभए सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि , चार, जग्गा भए मालपोत तिरेको रसिद, पाँच, सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि, छ, निवेदकको दुई प्रति फोटो  । "
-          );
-        } else if (intent === "Medical_Treatment_Expenses") {
-          speak(
-            "औषधी उपचार बापत खर्च पाउँनको सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, कडा रोगको प्रमाणित गरेको ओपिटि रिपोर्ट, तिन, बसाईसराई भए बसाईसराई कागजपत्र।"
-          );
-        } else if (intent === "Minors_Application_Request") {
-          speak(
-            "नाबालक सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, श्रीमतीको नागरिकताको प्रतिलिपि , तिन, विवाह दर्ताको प्रतिलिपि, चार, जन्मदर्ताको प्रतिलिपि, पाँच, । बसाईसराई भए बसाईसराईको प्रतिलिपि, छ, चालु आ.व. को सम्पत्ति कर तिरेको प्रमाणपत्र।"
-          );
-        } else if (intent === "Mohi_Lease_Acquisition_Transfer") {
-          speak(
-            "मोही नामसारीको लागि सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, अस्थायी निस्साको प्रमाणपत्र, तिन, कुत बुझाएको भपाई।"
-          );
-        } else if (intent === "Mohi_Lease_Acquisition") {
-          speak(
-            "मोही लगत कट्टाको लागि सिफारिस गर्नका लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, जग्गाधनी प्रमाण पुर्जाको प्रतिलिपि, तिन, जग्गाका प्रमाणित नापी नक्सा, चार, नाता प्रमाणित प्रमाणपत्रका प्रतिलिपि, पाँच, जग्गाका श्रेस्ता र फिल्डबुकका प्रमाणित प्रतिलिपि, छ, सर्जमिन मुचुल्का गरी बुझ्नु पर्ने भएमा साक्षी बस्नेको नागरिकता प्रमाणपत्रको प्रतिलिपि।"
-          );
-        } else if (intent === "Name_Standardization") {
-          speak(
-            "दुवै नाम गरेको व्यक्ति एकै हो भन्ने प्रमाणका लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, के के मा फरक परेको हो सोको कागजात, तिन, बसाई सराई भए बसाइसराइको प्रतिलिपि, चार, चालु आ. व. को सम्पत्ति कर तिरेको प्रमाणपत्र। "
-          );
-        } else if (intent === "Organization_Registration_Request") {
-          speak(
-            "संस्था दर्ता गर्नका सिफारिसको लागि संलग्न गर्नुपर्ने कागजहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, घरधनीसँग बहाल सम्झौता, तिन, सम्पत्ति कर बुझाएको प्रमाणपत्र, चार,घरेलु अथवा वाणिज्य अथवा उद्योग अथवा कम्पनीमा दर्ता भए सोको कागज। "
-          );
-        } else if (intent === "Permanent_Residence") {
-          speak(
-            "स्थायी बसोबासको सिफारिसको लागि संलग्न गर्नुपर्ने कागजहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, बसाईसराई भए बसाईसराई प्रमाणपत्रको प्रतिलिपि, तिन,चालु आ. व. को सम्पत्ति कर तिरेको प्रमाणपत्र।"
-          );
-        } else if (intent === "Pipeline_Installation") {
-          speak(
-            "धारा जडान सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, जग्गा धनी प्रमाण पुर्जाको प्रतिलिपि, तिन, नक्सा पास प्रमाणपत्रको प्रतिलिपि। , चार,निर्माण सम्पन्न प्रमाणपत्रको प्रतिलिपि, पाँच, चालु आ. व. को सम्पत्ति कर तिरेको प्रमाणपत्र । "
-          );
-        } else if (intent === "Property_Valuation") {
-          speak(
-            "जग्गा मूल्याङ्कन सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, जग्गा धनी प्रमाणपुर्जाको प्रतिलिपि, तिन, जग्गाको मालपोत तिरेको रसिद, चार, सम्पत्ति कर तिरेको प्रमाणपत्रको प्रतिलिपि, पाँच, मालपोत बुझाएको रसिद। "
-          );
-        } else if (intent === "Rental_Agreement_Application") {
-          speak(
-            "बहाल सम्झौता सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, दुबैको नागरिकता प्रतिलिपि, दुई, घर भए सम्पत्ति कर तिरेको प्रमाणपत्रको प्रतिलिपि, तिन, जग्गा भए जग्गाधनी प्रमाणपुर्जाको प्रतिलिपि, चार, सम्झौता पत्र।"
-          );
-        } else if (intent === "Road_Area_Validation") {
-          speak(
-            "घर बाटो प्रमाणित सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, लिने दिनेको नागरिकताको प्रतिलिपि , दुई, जग्गाधनी प्रमाणपुर्जाको प्रतिलिपि, तिन, घरभए सम्पत्ति कर बुझाएको प्रमाणपत्र, जग्गा भए मालपोत रसिद, चार, बढीमा छ महिनाभित्र निकालेको नापी नक्सा । "
-          );
-        } else if (intent === "Road_Maintenance_Proposal") {
-          speak(
-            "बाटो कायम सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि , दुई, जग्गाधनी प्रमाणपुर्जाको प्रतिलिपि, तिन, हालसालैको नापी नक्सा, चार,घरभए सम्पत्ति करतिरको प्रमाणपत्र अथवा जग्गा भए मालपोत रसिद । "
-          );
-        } else if (intent === "Room_Opening_Request") {
-          speak(
-            "कोठा खोली सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, ३५ दिने सूचनाको पत्रिका, तिन, सम्पत्ति कर तिरेको प्रमाणपत्रको प्रतिलिपि, चार, बहाल कर बुझाएको कागज।"
-          );
-        } else if (intent === "Scholarship_Application") {
-          speak(
-            "छात्रवृत्तिको लागि सिफारिस गर्नको लागि संलग्न गर्नुपर्ने कागजातहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि , दुई , विद्यार्थीको जन्मदर्ता , ३ , स्कुलमा अध्ययनको परिचयपत्र , ४ , वडा बाहिरको भए विपन्न सहरी गरिब आर्थिक अवस्था कमजोरको सिफारिस पत्र , ५ , घरधनीले सम्पत्ति कर तिरेको कागजात पत्र बहालमा भए बहाल कर तिरेको कागजात पत्र , ६ , भाडामा बस्नेको हकमा सम्बन्धित गाउँपालिका अथवा नगरपालिकाबाट सिफारिस ल्याउनुपर्ने"
-          );
-        } else if (intent === "School_Address_Change_Request") {
-          speak(
-            "विद्यालय ठाउँसारी सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, सक्कल व्यवसाय प्रमाणपत्र, तिन, ठाउँ सारी जाने घरधनीको सम्झौतापत्रको प्रतिलिपि। "
-          );
-        } else if (intent === "School_Operations_Class_Expansion_Request") {
-          speak(
-            "विद्यालय सञ्चालन अथवा कक्षा वृद्धिको सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, लेटर हेडमा लेखेको निवेदन, दुई, व्यवसाय प्रमाणपत्रको प्रतिलिपि, तिन, स्थलगत सर्जमिन।"
-          );
-        } else if (intent === "Social_Security_Allowance_Registration") {
-          speak(
-            "सामाजिक सुरक्षा भत्ता नाम दर्ता सम्बन्धमा सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, जेष्ठ नागरिकको हकमा (६८ वर्ष पूरा भएको), क, निवेदकको नागरिकता प्रतिलिपि ,ख, १ प्रति फोटो, दुई, विधवाको हकमा (विधवा भएदेखि), क, निवेदकको नागरिकताको प्रतिलिपि, ख, मृत्यु दर्ता प्रमाणपत्रको प्रतिलिपि, ग, एक प्रति फोटो, तिन, एकल महिलाको हकमा (६० वर्ष पूरा भएको), क, निवेदकको नागरिकताको प्रतिलिपि, ख, एक प्रति फोटो।"
-          );
-        } else if (intent === "Surveying_Road_No_Road_Field") {
-          speak(
-            "नापी नक्सामा बाटो नभएको फिल्डमा बाटो भएको सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, जग्गाधनी प्रमाणपुर्जाको प्रतिलिपि, तिन, मालपोत रसिद, चार,नापी नक्सा । "
-          );
-        } else if (intent === "Temporary_Property_Tax_Exemption") {
-          speak(
-            "अस्थायी टहराको सम्पत्ति कर तिर्न सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रतिलिपि , दुई, सम्झौतापत्रको प्रतिलिपि, तिन, लालपुर्जाको प्रतिलिपि । "
-          );
-        } else if (intent === "Temporary_Residence") {
-          speak(
-            "अस्थायी बसोबासको सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, घरधनीको नागरिकता, तिन, चालु आ. व. को सम्पत्ति कर तिरेको प्रमाणपत्र, चार, विदेशी भए नेपाल प्रवेश गरेको पासपोर्टको प्रतिलिपि, पाँच, कम्तिमा तीन महिना बसोबास गरेको सम्झौतापत्र।"
-          );
-        } else if (intent === "Unmarried_Status_Verification") {
-          speak(
-            "अविवाहित प्रमाणित सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि, तिन, स्थलगत सर्जमिन मुचुल्का, चार, सम्पत्ति कर बुझाएको प्रमाणपत्रको प्रतिलिपि। "
-          );
-        } else if (intent === "Verifying_Birth_Date") {
-          speak(
-            "जन्ममिति प्रमाणित सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, बसाईसराई आएको हकमा बसाईसराई प्रमाणपत्र, तिन, घरभए सम्पत्ति कर बुझाएको प्रमाणपत्र।"
-          );
-        } else if (intent === "Verifying_Death_Status") {
-          speak(
-            "मृत्यु नाता प्रमाणित सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, मृत्युदर्ता प्रमाणपत्रको प्रतिलिपि, तिन, तिन तिन प्रतिवटा साइजको फोटो । चार, चालु आ. व.सम्पत्ति कर तिरेको प्रमाणपत्रको प्रतिलिपि। "
-          );
-        } else if (intent === "Verifying_House_Land_Boundaries") {
-          speak(
-            "चार किल्ला प्रमाणित गर्न सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, निवेदकको नागरिकताको प्रतिलिपि, दुई, जग्गाधनी प्रमाणपुर्जाको प्रतिलिपि, तिन, घरभए भयो सम्पत्ति कर बुझाएको प्रमाणपत्र अथवा जग्गा भए मालपोत रसिद, चार, बढीमा छ महिनाभित्र निकालेको नापी नक्सा । "
-          );
-        } else if (intent === "Verifying_Marriage") {
-          speak(
-            "विवाह प्रमाणित सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। एक, दुल्हा दुलहीको नागरिकता प्रमाणपत्रको प्रतिलिपि, दुई, बसाईसराई आएको हकमा बसाईसराई प्रमाणपत्र, तिन, दुलहा दुलही दुवै उपस्थित भई सनाखत गर्नुपर्ने, चार, चालु आ. व. सम्मको सम्पत्ति कर तिरेको प्रमाणपत्रको प्रतिलिपि, पाँच, विक्रम सम्वत २०३६ पछिको हकमा विवाह दर्ता प्रमाणपत्रको प्रतिलिपि। "
-          );
-        } else if (intent === "Weak_Economic_Condition") {
-          speak(
-            "आर्थिक अवस्था कमजोर सिफारिसको लागि संलग्न गर्नुपर्ने कागजतहरू निम्न प्रकारका छन्। \n 1) निवेदकको नागरिकताको प्रतिलिपि, \n 2) बसाई सराई भए बसाईसराई प्रमाणपत्रको प्रतिलिपि, तिन, विषय प्रमाणित गर्ने कागजात भए सोको प्रतिलिपि, चार, चालु आवको सम्पत्ति कर तिरेको प्रमाणपत्र।"
-          );
-        } else {
 
-          const openai = new OpenAI({
-            apiKey: process.env.EXPO_PUBLIC_OPEN_AI_API_KEY,
-          });
+        await stopSpeechToText();
 
-
-          const response = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
-            messages: [
-              {
-                role: "system",
-                content: "तपाईं लालितपुर वडा नं. ३ का विभिन्न कार्यहरू र सामान्य जानकारीहरू उपलब्ध गराउन डिजाइन गरिएको एक कृत्रिम बुद्धिमत्ता सहायक हुनुहुन्छ। तपाईंको मुख्य काम विभिन्न कार्यहरूबारे उचित जानकारी दिनु र साथै सामान्य प्रश्नहरूको उत्तर दिनु हो। तपाईंले जानकारी दिँदा २/३ वाक्यहरूमा छोटो र बुँदागत रूपमा प्रस्तुत गर्नुपर्छ। सहज बोलचालको सरल नेपाली भाषा प्रयोग गर्नुपर्छ र विनम्र र सहायक स्वरमा बोल्नुपर्छ। जटिल र प्राविधिक शब्दावलीहरू प्रयोग गर्नुहुँदैन। तपाईंले आफ्नो सामान्य ज्ञानको आधारमा उपयुक्त उत्तर दिनुपर्छ। यदि कुनै प्रश्नको जवाफ दिन नसक्नुभयो भने सोको स्पष्ट जानकारी दिनुपर्छ। साथै सामान्य 'नमस्ते', 'के छ?', 'फेरी भन्नुहोस्' जस्ता प्रश्नहरूको पनि उत्तर दिन सक्नुपर्छ।",
-              },
-              {
-                role: "user",
-                content: text,
-              },
-            ],
-            temperature: 1,
-            max_tokens: 500,
-            top_p: 1,
-            frequency_penalty: 0,
-            presence_penalty: 0,
-          });
-
-          if (response.choices[0].message.content) {
-            speak(response.choices[0].message.content);
-          } else {
-            speak(CONSTANT_WORDS_TO_SPEAK.error_server);
-          }
-        }
+        await callGeminiAPI(
+          text,
+          res,
+          intentResponses[intent as keyof typeof intentResponses]
+        );
       })
       .catch((error) => {
         console.error("Error fetching data from Wit.ai:", error);
@@ -414,14 +176,169 @@ export default function TabTwoScreen() {
       })
       .finally(() => {
         setLoading(false);
-        startSpeechToText();
       });
+  };
+
+  const callGeminiAPI = async (
+    text: string,
+    intentResponse: IntentResponse,
+    ourResponse: string
+  ) => {
+    try {
+      const genAI = new GoogleGenerativeAI(
+        process.env.EXPO_PUBLIC_GEMINI_API_KEY || ""
+      );
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+
+      const prompt = `
+    IDENTITY:
+      Name: Sarathi (Created by Baliyo Ventures)
+      Role: NTC Nepal Customer Support Assistant
+      Chairman: Mrs. Radhika Aryal
+      Website: https://www.ntc.net.np/
+      CORE SERVICES & PROCESSES:
+
+      You are a knowledgeable and helpful assistant specializing in NTC Nepal services. Always provide complete, confident answers.
+
+      CORE GUIDELINES:
+
+      Answer all aspects of user questions completely
+      Never refuse to answer
+      Provide solutions even for complex queries
+      Be practical and action-oriented
+      CONTEXT SETTINGS:
+
+      NTC Nepal Services:
+
+      Mobile Services: [PostPaid and Prepaid eSim]
+
+
+
+      Internet Services: [Fiber-to-the-Home (FTTH) and Dedicated Lease Connectivity and ADSL services]
+
+      Fixed Line Services: [Landline, Toll Free Phone, IVR Services, SIP PBX Services]
+
+      Prepaid:
+      Classic Plans: Various plans with different voice call, SMS, and data benefits.
+      Data Packs: A range of data packs with varying data volumes and validity periods.
+      Combo Packs: Bundles that combine voice calls, SMS, and data benefits.
+      Specific Combo Packs:
+      Combo 199 Pack: 2GB data, 200 minutes all-net calls, 28 days validity
+      Combo 299 Pack: 4GB data, 300 minutes all-net calls, 20 SMS (NT-NT), 28 days validity
+      Combo 499 Pack: 8GB data, 500 minutes all-net calls, 100 SMS all-net, 28 days validity
+      Sajilo Unlimited 699 Pack: 15GB data, unlimited all-net calls, 200 SMS all-net, 28 days validity (prepaid) / 30 days (postpaid)
+      Sajilo Unlimited 799 Pack: 30GB data, unlimited all-net calls, 250 SMS all-net, 28 days validity (prepaid) / 30 days (postpaid)
+      Sajilo Unlimited 999 Pack: 60GB data, unlimited all-net calls, 300 SMS all-net, 28 days validity (prepaid) / 30 days (postpaid)
+      Sajilo Unlimited 1499 Pack: 100GB data, unlimited all-net calls, 350 SMS all-net, 28 days validity (prepaid) / 30 days (postpaid)
+      Sajilo Executive Pack: 200GB data, unlimited all-net calls, 500 SMS all-net, 28 days validity (prepaid) / 30 days (postpaid)
+
+
+      To get an eSIM in Nepal, you can:
+    Check device compatibility: Make sure your phone supports eSIM technology. You can check by dialing *#06# on Android phones, or looking for the "add cellular plan" option in the settings on Apple iOS devices. 
+Choose a plan: Select an eSIM data plan that meets your needs. Consider your stay duration, expected data usage, and whether you'll travel to other areas. 
+Purchase the eSIM: Buy the eSIM plan from a website like eSIM.net or ETravelSim. 
+      Install and activate the eSIM: You'll receive an email with a QR code and instructions for installation and activation. 
+      Test connectivity: Verify that your device can connect to the internet. 
+
+      Postpaid:
+      Smart Plans: Customized plans with flexible data, voice call, and SMS limits.
+      Family Plans: Shared plans for multiple SIM cards within a family.
+      Specific Postpaid Plans:
+      373 Voice Pack: 800 minutes (NT-NT), 30 days validity
+      373 Data Pack: 6GB data, 30 days validity
+      Postpaid 499 Pack: 500 minutes all-net calls, 8GB data, 100 SMS all-net, 30 days validity
+      Home Broadband:
+
+      Fiber-to-the-Home (FTTH): High-speed internet plans with different speeds and data limits.
+      Wireless Broadband: 4G LTE wireless broadband plans for areas with limited fiber connectivity.
+      Other Services:
+
+      NTC Money: Mobile financial services for easy money transfers and payments.
+      NTC TV: Digital television service with various channel packages.
+      NTC Cloud: Cloud-based storage and computing solutions.
+      General Queries:
+
+      Provide Nepal-focused information
+      Include fees, timelines, and requirements when applicable and also if they need suggestion then suggest the best possible option available.
+      RESPONSE STYLE:
+
+      Friendly and conversational tone
+      Maximum 80 words per response
+      Use simple, clear language
+      Mix Nepali and English terms appropriately
+      Include specific steps and requirements
+      Dont add any contact information (NTC Customer Care: 1498)
+      
+      FOR UNCERTAIN CASES:
+      Provide best possible answer based on similar scenarios
+      Suggest practical alternatives
+      Include general process guidelines
+      Recommend next steps
+
+      If user asks for some volume of data they want then recommend the best possible plan available rather than saying no. User might
+      also ask based on no of days please suggest accrodingly.
+
+      If anyone asks who are you or wants to know your identity then say i am robot made by baliyo ventures for NTC customer services.
+      User Query: ${text}
+      Answer in Complete Nepali language only.
+  
+      If anyone asks who are you or wants to know your identity then say i am robot made by baliyo ventures for ward related services.
+      User Query: ${text}
+      Intent: ${intentResponse}
+      Our Response: ${ourResponse}
+
+      Previous Conversation: ${conversation}
+      Answer in Complete Nepali language only.
+      if question is in english reply in english.
+    `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response.text();
+
+      if (response) {
+        speak(response);
+      } else {
+        speak(CONSTANT_WORDS_TO_SPEAK.error_server);
+      }
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      speak(CONSTANT_WORDS_TO_SPEAK.error_server);
+    }
+  };
+
+  const speakGoodbye = async () => {
+    const speechOptions = {
+      voice: "ne-NP-language",
+      pitch: 1,
+      rate: 1,
+      language: "ne-NP",
+      onStart: () => stopSpeechToText().catch(console.error),
+      onDone: () => {
+        console.log("Speech finished");
+        navigateAway();
+      },
+    };
+    updateConversation("sarathi", CONSTANT_WORDS_TO_SPEAK.goodbye);
+    Speech.speak(CONSTANT_WORDS_TO_SPEAK.goodbye, {
+      ...speechOptions,
+      onStart: () => {
+        stopSpeechToText().catch(console.error);
+      },
+      onDone: () => {
+        console.log("Speech finished");
+        navigateAway();
+      },
+    });
+  };
+
+  const navigateAway = async () => {
+    await stopSpeechToText();
+    router.navigate("/(tabs)/");
   };
 
   return (
     <View className="flex-1 items-center justify-center">
       <LinearGradient
-        // Background Linear Gradient
         colors={["rgba(255,255,255,255)", "#fff", "#ffffd0"]}
         className="absolute flex-1 top-0 left-0 right-0 bottom-0 z-0"
       />
