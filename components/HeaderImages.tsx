@@ -20,11 +20,7 @@ export const HeaderImages = () => {
         source={require("@/assets/images/header.svg")}
         className="h-48 w-48 z-10"
       />
-      <Image
-        placeholder={blurhash}
-        source={require("@/assets/images/hi-sarathi.svg")}
-        className="h-32 w-32 mt-10 z-10"
-      />
+    
       <Image
         placeholder={blurhash}
         source={require("@/assets/images/hello-sarathi.svg")}

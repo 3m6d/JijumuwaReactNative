@@ -54,9 +54,10 @@ export default {
       "router": {
         "origin": false
       },
-      "eas": {
-        "projectId": "b2e72e78-5797-45ac-9395-f68239a880ab"
-      }
+        "eas": {
+            "projectId": "b31d4fd3-bbcf-4345-9b39-9831362e5441"
+          }
+
     }
   }
 }
