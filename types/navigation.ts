@@ -10,6 +10,12 @@ export type TabScreenConfig = {
 
 export type TabRoutesConfig = {
   index: TabScreenConfig;
-  two: TabScreenConfig;
-  game: TabScreenConfig;
+  register: TabScreenConfig;
+  login: TabScreenConfig;
 };
+
+export type ElderlyRoutesConfig = {
+  two: TabScreenConfig;
+};
+
+

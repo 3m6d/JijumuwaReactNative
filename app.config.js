@@ -5,7 +5,7 @@ export default {
     "name": IS_DEV ? "sarathi (DEV)" : "sarathi",
     "slug": "sarathi",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "potrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
@@ -38,6 +38,7 @@ export default {
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
       [
         "@react-native-voice/voice",
         {

@@ -14,7 +14,7 @@ export const ActionButton = ({ onPress, text }: ActionButtonProps) => {
     if (onPress) {
       onPress();
     } else {
-      router.replace("/(tabs)/two");
+      router.replace("../(elderly)/two");
     }
   };
 

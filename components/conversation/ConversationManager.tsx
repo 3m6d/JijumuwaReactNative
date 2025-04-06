@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { SpeechService } from "@/services/speech/speechService";
-import { CONSTANT_WORDS_TO_SPEAK } from "@/constants";
+
 import { useRouter } from "expo-router";
 import uuid from "react-native-uuid";
 import { IntentProcessor } from "@/services/intent/intentProcessor";

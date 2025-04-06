@@ -3,22 +3,28 @@ import { TabRoutesConfig } from "@/types/navigation";
 export const tabRoutes: TabRoutesConfig = {
   index: {
     name: "index",
-    title: "Tab One",
-    icon: "code",
-    headerShown: false,
-    hideTabBar: true,
+    title: "Welcome",
+    icon: "home",
+    headerShown: true,
+    hideTabBar: false,
   },
-  two: {
-    name: "two",
-    title: "Tab Two",
-    icon: "code",
+  // welcome: {
+  //   name: "welcome",
+  //   title: "Welcome",
+  //   icon: "home",
+  //   headerShown: false,
+  // },
+  register: {
+    name: "register",
+    title: "Register",
+    icon: "user-plus",
     headerShown: false,
-    hideTabBar: true,
+    hideTabBar: false,
   },
-  game: {
-    name: "game",
-    title: "Game",
-    icon: "code",
+  login: {
+    name: "login",
+    title: "Login",
+    icon: "sign-in",
     headerShown: false,
     hideTabBar: true,
   },

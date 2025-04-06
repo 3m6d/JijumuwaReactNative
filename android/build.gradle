@@ -22,6 +22,19 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            android {
+                publishing {
+                    singleVariant("release") {
+                    }
+                }
+            }
+        }
+    }
+}
+
 allprojects {
     repositories {
         maven {

@@ -7,19 +7,10 @@ export const HeaderImages = () => {
     <View className="flex flex-row justify-center w-full bg-transparent">
       <Image
         placeholder={blurhash}
-        source={require("@/assets/images/bye-en.svg")}
-        className="h-16 mt-10 w-16 z-10"
-      />
-      <Image
-        placeholder={blurhash}
         source={require("@/assets/images/header.svg")}
-        className="h-32 w-32 z-10"
+        className="h-20 w-20 z-10"
       />
-      <Image
-        placeholder={blurhash}
-        source={require("@/assets/images/bye-np.svg")}
-        className="h-16 w-16 mt-10 z-10"
-      />
+
     </View>
   );
 };
