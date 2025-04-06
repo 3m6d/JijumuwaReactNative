@@ -19,7 +19,7 @@ export default {
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": IS_DEV ? "com.manavkhaka0.sarathi.dev" : "com.manavkhaka.sarathi",
+      "bundleIdentifier": IS_DEV ? "com.dipawoli.sarathi.dev" : "com.dipawoli.sarathi",
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +29,7 @@ export default {
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package":IS_DEV ? "com.manavkhaka0.sarathi" : "com.manavkhaka.sarathi",
+      "package":IS_DEV ? "com.dipawoli.sarathi" : "com.dipawoli.sarathi",
     },
     "web": {
       "bundler": "metro",

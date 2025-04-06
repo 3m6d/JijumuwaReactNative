@@ -14,8 +14,20 @@ export type TabRoutesConfig = {
   login: TabScreenConfig;
 };
 
+// Create a proper type for the elderly route configuration
+export type ElderlyScreenConfig = {
+  name: string;
+  title: string;
+  icon: keyof typeof FontAwesome.glyphMap;
+  headerShown?: boolean;
+  hideTabBar?: boolean;
+};
+
+// Fix the ElderlyRoutesConfig to use ElderlyScreenConfig
 export type ElderlyRoutesConfig = {
-  two: TabScreenConfig;
+  dashboard: ElderlyScreenConfig;
+  two: ElderlyScreenConfig;
+  three: ElderlyScreenConfig;
 };
 
 
