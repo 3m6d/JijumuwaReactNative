@@ -4,14 +4,12 @@ import { blurhash } from "@/constants";
 
 export const HeaderImages = () => {
   return (
-    <View className="flex flex-row justify-between w-full bg-transparent">
-
+    <View className="justify-center items-center w-full bg-transparent mb-1">
       <Image
         placeholder={blurhash}
         source={require("@/assets/images/header.svg")}
-        className="h-48 w-48 z-10"
+        className="h-40 w-40 z-10"
       />
-    
     </View>
   );
 };

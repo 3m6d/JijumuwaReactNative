@@ -20,7 +20,7 @@ export const ActionButton = ({ onPress, text }: ActionButtonProps) => {
 
   return (
     <TouchableOpacity
-      className="bg-yellow-400 py-4 mx-4 px-10 rounded-full z-10"
+      className="bg-yellow-400 py-4 mx-4 px-10 rounded-full z-10 mt-10"
       onPress={handlePress}
     >
       <Text className="text-2xl text-center font-extrabold text-gray-800">
